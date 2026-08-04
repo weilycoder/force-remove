@@ -106,6 +106,20 @@ std::string WideToUtf8(const std::wstring &wide) {
   return utf8;
 }
 
+std::wstring GetFullPath(const std::wstring &path) {
+  DWORD bufferSize = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr);
+  if (bufferSize == 0)
+    throw std::system_error(GetLastError(), std::system_category(), "GetFullPathNameW failed");
+
+  std::wstring fullPath(bufferSize, L'\0');
+  DWORD result = GetFullPathNameW(path.c_str(), bufferSize, &fullPath[0], nullptr);
+  if (result != bufferSize - 1)
+    throw std::system_error(GetLastError(), std::system_category(), "GetFullPathNameW failed");
+
+  fullPath.resize(result);
+  return fullPath;
+}
+
 void _ForceRemove(const std::wstring &widePath, Logger &logger);
 
 void ForceRemove(const std::string &pathname, Logger &logger) {
@@ -122,7 +136,7 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
   }
 
   // Step 2: Convert path to wide string and format it
-  _ForceRemove(Utf8ToWide(pathname), logger);
+  _ForceRemove(GetFullPath(Utf8ToWide(pathname)), logger);
 }
 
 void _ForceRemove(const std::wstring &widePath, Logger &logger) {
