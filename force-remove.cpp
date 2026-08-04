@@ -24,5 +24,5 @@ int main(int argc, char *argv[]) {
 
   Logger logger(log_level);
   ForceRemove(path, logger);
-  return logger.getMsgFlag() & (1u << Logger::error_v) ? 1 : 0;
+  return logger.getMsgFlag() & Logger::error_m ? 1 : 0;
 }

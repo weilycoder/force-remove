@@ -18,6 +18,11 @@ public:
   static constexpr std::int32_t warning_v = 2;
   static constexpr std::int32_t error_v = 3;
 
+  static constexpr std::uint32_t debug_m = 1u << debug_v;
+  static constexpr std::uint32_t info_m = 1u << info_v;
+  static constexpr std::uint32_t warning_m = 1u << warning_v;
+  static constexpr std::uint32_t error_m = 1u << error_v;
+
 private:
   static constexpr const char *debug_s = "[DEBUG]   ";
   static constexpr const char *info_s = "[INFO]    ";
