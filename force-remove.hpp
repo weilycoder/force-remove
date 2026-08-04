@@ -153,7 +153,7 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
       return;
     }
 
-    // Step 2: Convert path to wide string and format it
+    // Step 2: Convert path to wide string
     _ForceRemove(GetFullPath(Utf8ToWide(pathname)), logger);
   } catch (const std::exception &e) { logger.error(std::string("Exception: ") + e.what()); }
 }
