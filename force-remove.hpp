@@ -5,8 +5,11 @@
 #include <iostream>
 #include <string>
 #include <system_error>
+
+#include <pathcch.h>
 #include <windows.h>
-#pragma comment(lib, "advapi32.lib")
+
+#pragma comment(lib, "pathcch.lib")
 
 class Logger {
 public:
@@ -120,6 +123,15 @@ std::wstring GetFullPath(const std::wstring &path) {
   return fullPath;
 }
 
+std::wstring PathCombine(const std::wstring &path1, const std::wstring &path2) {
+  PWSTR combinedPath = nullptr;
+  HRESULT hr = PathAllocCombine(path1.c_str(), path2.c_str(), 1, &combinedPath);
+  if (FAILED(hr)) throw std::system_error(hr, std::system_category(), "PathAllocCombine failed");
+  std::wstring result(combinedPath);
+  LocalFree(combinedPath);
+  return result;
+}
+
 void _ForceRemove(const std::wstring &widePath, Logger &logger);
 
 void ForceRemove(const std::string &pathname, Logger &logger) {
@@ -166,8 +178,25 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   // Step 3: Detect if the path is a directory or a file
   if (std::filesystem::is_directory(widePath)) {
     logger.debug("Detected directory: " + name);
-    // TODO: Recursively remove directory contents
-    logger.warning("Directory removal not implemented yet for: " + name);
+    std::wstring searchPath = PathCombine(widePath, L"*");
+    WIN32_FIND_DATAW findData;
+    HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
+    if (hFind == INVALID_HANDLE_VALUE) {
+      CloseHandle(hFind);
+      logger.error("Failed to list directory contents for: " + name);
+      return;
+    }
+    do {
+      std::wstring entryName(findData.cFileName);
+      if (entryName == L"." || entryName == L"..") continue;
+      std::wstring fullEntryPath = PathCombine(widePath, entryName);
+      _ForceRemove(fullEntryPath, logger);
+    } while (FindNextFileW(hFind, &findData));
+    CloseHandle(hFind);
+    if (RemoveDirectoryW(widePath.c_str()))
+      logger.info("Directory deleted successfully: " + name);
+    else
+      logger.error("Failed to delete directory: " + name);
     return;
   }
 
@@ -176,10 +205,9 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
     logger.info("File deleted successfully: " + name);
     return;
   } else
-    logger.warning("Failed to delete file: " + name);
+    logger.error("Failed to delete file: " + name);
 
   // TODO: Search for the file handle and force close it
-  logger.warning("Force closing file handles not implemented yet for: " + name);
 }
 
 #endif // FRM_FORCE_REMOVE_HPP
