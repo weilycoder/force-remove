@@ -186,17 +186,16 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
     std::wstring searchPath = PathCombine(widePath, L"*");
     WIN32_FIND_DATAW findData;
     HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
-    if (hFind == INVALID_HANDLE_VALUE) {
-      CloseHandle(hFind);
+    if (hFind == INVALID_HANDLE_VALUE)
       logger.error("Failed to list directory contents for: " + name);
-      return;
+    else {
+      do {
+        std::wstring entryName(findData.cFileName);
+        if (entryName == L"." || entryName == L"..") continue;
+        std::wstring fullEntryPath = PathCombine(widePath, entryName);
+        _ForceRemove(fullEntryPath, logger);
+      } while (FindNextFileW(hFind, &findData));
     }
-    do {
-      std::wstring entryName(findData.cFileName);
-      if (entryName == L"." || entryName == L"..") continue;
-      std::wstring fullEntryPath = PathCombine(widePath, entryName);
-      _ForceRemove(fullEntryPath, logger);
-    } while (FindNextFileW(hFind, &findData));
     CloseHandle(hFind);
     if (RemoveDirectoryW(widePath.c_str()))
       logger.info("Directory deleted successfully: " + name);
