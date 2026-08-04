@@ -140,20 +140,22 @@ std::wstring PathCombine(const std::wstring &path1, const std::wstring &path2) {
 void _ForceRemove(const std::wstring &widePath, Logger &logger);
 
 void ForceRemove(const std::string &pathname, Logger &logger) {
-  if (!IsRunAsAdmin()) {
-    logger.error("This program must be run as administrator.");
-    return;
-  }
+  try {
+    if (!IsRunAsAdmin()) {
+      logger.error("This program must be run as administrator.");
+      return;
+    }
 
-  // Step 1: Set Privileges
-  if (!SetPrivilege(L"SeBackupPrivilege") || !SetPrivilege(L"SeRestorePrivilege") ||
-      !SetPrivilege(L"SeDebugPrivilege") || !SetPrivilege(L"SeTakeOwnershipPrivilege")) {
-    logger.error("Failed to set required privileges.");
-    return;
-  }
+    // Step 1: Set Privileges
+    if (!SetPrivilege(L"SeBackupPrivilege") || !SetPrivilege(L"SeRestorePrivilege") ||
+        !SetPrivilege(L"SeDebugPrivilege") || !SetPrivilege(L"SeTakeOwnershipPrivilege")) {
+      logger.error("Failed to set required privileges.");
+      return;
+    }
 
-  // Step 2: Convert path to wide string and format it
-  _ForceRemove(GetFullPath(Utf8ToWide(pathname)), logger);
+    // Step 2: Convert path to wide string and format it
+    _ForceRemove(GetFullPath(Utf8ToWide(pathname)), logger);
+  } catch (const std::exception &e) { logger.error(std::string("Exception: ") + e.what()); }
 }
 
 void _ForceRemove(const std::wstring &widePath, Logger &logger) {
