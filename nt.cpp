@@ -41,10 +41,7 @@ std::wstring GetKernelName(HANDLE hFile) {
     buffer = malloc(returnedLength);
     if (buffer == nullptr) throw std::bad_alloc();
     status = NtQueryObject(hFile, ObjectNameInformation, name_info, returnedLength, &returnedLength);
-    if (status == STATUS_INFO_LENGTH_MISMATCH) {
-      free(buffer), buffer = nullptr;
-      returnedLength <<= 1; // Double the size considering more handle may be created
-    }
+    if (status == STATUS_INFO_LENGTH_MISMATCH) free(buffer), buffer = nullptr;
   }
 
   if (!NT_SUCCESS(status)) {
