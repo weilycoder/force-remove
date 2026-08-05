@@ -1,0 +1,1 @@
+@g++ -o forcedelete.exe force-remove.cpp nt.cpp utils.cpp -lpathcch -static -O3
