@@ -17,8 +17,7 @@
 #define STATUS_INFO_LENGTH_MISMATCH ((NTSTATUS)0xC0000004UL)
 
 typedef NTSTATUS(NTAPI *pNtQueryObject)(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass,
-                                        PVOID ObjectInformation, ULONG ObjectInformationLength,
-                                        PULONG ReturnLength);
+                                        PVOID ObjectInformation, ULONG ObjectInformationLength, PULONG ReturnLength);
 typedef NTSTATUS(NTAPI *pRtlNtStatusToDosError)(NTSTATUS Status);
 typedef NTSTATUS(NTAPI *pNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS SystemInformationClass,
                                                    PVOID SystemInformation, ULONG SystemInformationLength,
@@ -60,18 +59,17 @@ private:
 public:
   Logger() : log_level(0), msg_flag(0), out(std::cout) {}
   Logger(std::int32_t level) : log_level(level), msg_flag(0), out(std::cout) {}
-  Logger(std::int32_t level, std::ostream &output_stream)
-      : log_level(level), msg_flag(0), out(output_stream) {}
+  Logger(std::int32_t level, std::ostream &output_stream) : log_level(level), msg_flag(0), out(output_stream) {}
 
   void setLogLevel(std::int32_t level) { log_level = level; }
 
   void clearMsgFlag() { msg_flag = 0; }
   std::uint32_t getMsgFlag() const { return msg_flag; }
 
-#define DEF_LOG(level)                                                                                       \
-  void level(const std::string &message) {                                                                   \
-    msg_flag |= 1u << level##_v;                                                                             \
-    if (log_level <= level##_v) out << level##_s << message << std::endl;                                    \
+#define DEF_LOG(level)                                                                                                 \
+  void level(const std::string &message) {                                                                             \
+    msg_flag |= 1u << level##_v;                                                                                       \
+    if (log_level <= level##_v) out << level##_s << message << std::endl;                                              \
   }
 
   DEF_LOG(debug);
@@ -86,8 +84,8 @@ bool IsRunAsAdmin() {
   BOOL isAdmin = FALSE;
   PSID adminGroup = nullptr;
   SID_IDENTIFIER_AUTHORITY ntAuthority = SECURITY_NT_AUTHORITY;
-  if (AllocateAndInitializeSid(&ntAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0,
-                               0, 0, 0, &adminGroup)) {
+  if (AllocateAndInitializeSid(&ntAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0,
+                               &adminGroup)) {
     CheckTokenMembership(nullptr, adminGroup, &isAdmin);
     FreeSid(adminGroup);
   }
@@ -116,8 +114,7 @@ std::wstring Utf8ToWide(const std::string &utf8) {
   if (utf8.empty()) return std::wstring();
   int utf8Len = static_cast<int>(utf8.size());
   int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), utf8Len, nullptr, 0);
-  if (len == 0)
-    throw std::system_error(GetLastError(), std::system_category(), "MultiByteToWideChar (query) failed");
+  if (len == 0) throw std::system_error(GetLastError(), std::system_category(), "MultiByteToWideChar (query) failed");
   std::wstring wide(len, L'\0');
   int converted = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), utf8Len, &wide[0], len);
   if (converted != len)
@@ -129,8 +126,7 @@ std::string WideToUtf8(const std::wstring &wide) {
   if (wide.empty()) return std::string();
   int wideLen = static_cast<int>(wide.size());
   int len = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), wideLen, nullptr, 0, nullptr, nullptr);
-  if (len == 0)
-    throw std::system_error(GetLastError(), std::system_category(), "WideCharToMultiByte (query) failed");
+  if (len == 0) throw std::system_error(GetLastError(), std::system_category(), "WideCharToMultiByte (query) failed");
   std::string utf8(len, '\0');
   int converted = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), wideLen, &utf8[0], len, nullptr, nullptr);
   if (converted != len)
@@ -140,8 +136,7 @@ std::string WideToUtf8(const std::wstring &wide) {
 
 std::wstring GetFullPath(const std::wstring &path) {
   DWORD bufferSize = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr);
-  if (bufferSize == 0)
-    throw std::system_error(GetLastError(), std::system_category(), "GetFullPathNameW failed");
+  if (bufferSize == 0) throw std::system_error(GetLastError(), std::system_category(), "GetFullPathNameW failed");
 
   std::wstring fullPath(bufferSize, L'\0');
   DWORD result = GetFullPathNameW(path.c_str(), bufferSize, &fullPath[0], nullptr);
@@ -192,8 +187,8 @@ std::wstring GetKernelName(HANDLE hFile) {
 }
 
 std::wstring GetKernelName(const std::wstring &path) {
-  HANDLE file_handle = CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                   NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+  HANDLE file_handle = CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                                   OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
   if (file_handle == INVALID_HANDLE_VALUE)
     throw std::system_error(GetLastError(), std::system_category(), "CreateFileW failed");
   const auto kernelName = GetKernelName(file_handle);
@@ -218,8 +213,7 @@ PSYSTEM_HANDLE_INFORMATION GetAllHandles() {
 
   if (!NT_SUCCESS(status)) {
     free(buffer);
-    throw std::system_error(RtlNtStatusToDosError(status), std::system_category(),
-                            "NtQuerySystemInformation failed");
+    throw std::system_error(RtlNtStatusToDosError(status), std::system_category(), "NtQuerySystemInformation failed");
   }
 
   return reinterpret_cast<PSYSTEM_HANDLE_INFORMATION>(buffer);
