@@ -155,7 +155,11 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
 
     // Step 2: Convert path to wide string
     _ForceRemove(GetFullPath(Utf8ToWide(pathname)), logger);
-  } catch (const std::exception &e) { logger.error(std::string("Exception: ") + e.what()); }
+  } catch (const std::bad_alloc &e) {
+    logger.error(std::string("Memory allocation failed: ") + e.what());
+  } catch (const std::system_error &e) {
+    logger.error(std::string("System error: ") + e.what());
+  } catch (const std::exception &e) { logger.error(std::string("Unexpected error: ") + e.what()); }
 }
 
 void _ForceRemove(const std::wstring &widePath, Logger &logger) {
