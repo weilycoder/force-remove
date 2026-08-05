@@ -2,7 +2,7 @@
 
 int main(int argc, char *argv[]) {
   if (argc < 2 || argc > 3) {
-    std::cout << "Usage: force-remove <path> [<log_level>]" << std::endl;
+    std::cout << "Usage: forcedelete <path> [<log_level>]" << std::endl;
     return -1;
   }
 
