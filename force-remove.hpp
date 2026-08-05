@@ -191,21 +191,6 @@ std::wstring GetKernelName(HANDLE hFile) {
   return kernelName;
 }
 
-std::wstring GetKernelName(const SYSTEM_HANDLE_ENTRY &entry) {
-  HANDLE hProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, entry.OwnerPid);
-  if (!hProcess) return L"";
-  HANDLE hDupHandle = nullptr;
-  if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)entry.HandleValue, GetCurrentProcess(), &hDupHandle, 0, 0,
-                       DUPLICATE_SAME_ACCESS)) {
-    CloseHandle(hProcess);
-    return L"";
-  }
-  CloseHandle(hProcess);
-  std::wstring kernelName = GetKernelName(hDupHandle);
-  CloseHandle(hDupHandle);
-  return kernelName;
-}
-
 std::wstring GetKernelName(const std::wstring &path) {
   HANDLE file_handle = CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                    NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
@@ -324,28 +309,39 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   // Step 5: Search for the file handle and force close it
   logger.info("Searching for handles for: " + name);
   PSYSTEM_HANDLE_INFORMATION handleInfo = GetAllHandles();
+  const HANDLE currentProcess = GetCurrentProcess();
+  ULONG lastPid = 0;
+  HANDLE hProcess = nullptr;
   for (ULONG i = 0; i < handleInfo->Count; ++i) {
-    if (GetKernelName(handleInfo->Handle[i]) != nameW) continue;
     ULONG &pid = handleInfo->Handle[i].OwnerPid;
-    USHORT &handle = handleInfo->Handle[i].HandleValue;
-    logger.info("Found handle: " + std::to_string(handle) + " in process: " + std::to_string(pid));
-    HANDLE hProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid);
-    if (!hProcess) {
-      logger.error("Failed to open process: " + std::to_string(pid));
-      continue;
+    USHORT &remoteHandle = handleInfo->Handle[i].HandleValue;
+
+    if (i == 0 || lastPid != pid) {
+      lastPid = pid;
+      if (hProcess) CloseHandle(hProcess);
+      hProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid);
     }
-    HANDLE hDupHandle = nullptr;
-    if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)handle, GetCurrentProcess(), &hDupHandle, 0, FALSE,
+    if (!hProcess) continue;
+    HANDLE dupHandle = nullptr;
+    if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)remoteHandle, currentProcess, &dupHandle, 0, 0,
+                         DUPLICATE_SAME_ACCESS))
+      continue;
+    std::wstring handleKernelName = GetKernelName(dupHandle);
+    CloseHandle(dupHandle), dupHandle = nullptr;
+    if (handleKernelName != nameW) continue;
+
+    logger.info("Found handle: " + std::to_string(remoteHandle) + " in process: " + std::to_string(pid));
+    if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)remoteHandle, GetCurrentProcess(), &dupHandle, 0, FALSE,
                          DUPLICATE_CLOSE_SOURCE)) {
-      logger.error("Failed to close handle: " + std::to_string((std::uintptr_t)handle) +
+      logger.error("Failed to close handle: " + std::to_string((std::uintptr_t)remoteHandle) +
                    " in process: " + std::to_string(pid));
     } else {
-      logger.info("Closed handle: " + std::to_string((std::uintptr_t)handle) +
+      logger.info("Closed handle: " + std::to_string((std::uintptr_t)remoteHandle) +
                   " in process: " + std::to_string(pid));
-      CloseHandle(hDupHandle);
+      CloseHandle(dupHandle);
     }
-    CloseHandle(hProcess);
   }
+  if (hProcess) CloseHandle(hProcess);
   free(handleInfo);
 
   // Step 6: Retry deleting the file after closing handles
