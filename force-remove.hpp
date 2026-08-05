@@ -16,6 +16,7 @@
 
 #define STATUS_INFO_LENGTH_MISMATCH ((NTSTATUS)0xC0000004UL)
 
+typedef NTSTATUS(NTAPI *pNtDeleteFile)(POBJECT_ATTRIBUTES ObjectAttributes);
 typedef NTSTATUS(NTAPI *pNtQueryObject)(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass,
                                         PVOID ObjectInformation, ULONG ObjectInformationLength, PULONG ReturnLength);
 typedef NTSTATUS(NTAPI *pRtlNtStatusToDosError)(NTSTATUS Status);
@@ -23,11 +24,13 @@ typedef NTSTATUS(NTAPI *pNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS Syst
                                                    PVOID SystemInformation, ULONG SystemInformationLength,
                                                    PULONG ReturnLength);
 
+#define NtDeleteFile _NtDeleteFile
 #define NtQueryObject _NtQueryObject
 #define RtlNtStatusToDosError _RtlNtStatusToDosError
 #define NtQuerySystemInformation _NtQuerySystemInformation
 
 HMODULE hNtdll = LoadLibraryW(L"ntdll.dll");
+pNtDeleteFile _NtDeleteFile = reinterpret_cast<pNtDeleteFile>(GetProcAddress(hNtdll, "NtDeleteFile"));
 pNtQueryObject _NtQueryObject = reinterpret_cast<pNtQueryObject>(GetProcAddress(hNtdll, "NtQueryObject"));
 pRtlNtStatusToDosError _RtlNtStatusToDosError =
     reinterpret_cast<pRtlNtStatusToDosError>(GetProcAddress(hNtdll, "RtlNtStatusToDosError"));
@@ -196,6 +199,25 @@ std::wstring GetKernelName(const std::wstring &path) {
   return kernelName;
 }
 
+bool DeleteFileByNt(const std::wstring &kernelName) {
+  UNICODE_STRING uniName;
+  OBJECT_ATTRIBUTES objAttr;
+
+  uniName.Buffer = (PWSTR)kernelName.c_str();
+  uniName.Length = (USHORT)(kernelName.length() * sizeof(wchar_t));
+  uniName.MaximumLength = (USHORT)((kernelName.length() + 1) * sizeof(wchar_t));
+
+  objAttr.Length = sizeof(OBJECT_ATTRIBUTES);
+  objAttr.RootDirectory = NULL;
+  objAttr.ObjectName = &uniName;
+  objAttr.Attributes = OBJ_CASE_INSENSITIVE;
+  objAttr.SecurityDescriptor = NULL;
+  objAttr.SecurityQualityOfService = NULL;
+
+  NTSTATUS status = NtDeleteFile(&objAttr);
+  return NT_SUCCESS(status);
+}
+
 PSYSTEM_HANDLE_INFORMATION GetAllHandles() {
   void *buffer = nullptr;
   ULONG returnedLength = 0x1000;
@@ -315,7 +337,7 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   }
 
   // Step 4: Attempt to delete the file
-  if (DeleteFileW(widePath.c_str())) {
+  if (DeleteFileByNt(nameW)) {
     logger.info("File deleted successfully: " + name);
     return;
   } else
@@ -361,7 +383,7 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   free(handleInfo);
 
   // Step 6: Retry deleting the file after closing handles
-  if (DeleteFileW(widePath.c_str()))
+  if (DeleteFileByNt(nameW))
     logger.info("File deleted successfully: " + name);
   else
     logger.error("Failed to delete file: " + name);
