@@ -37,10 +37,9 @@ std::wstring GetFullPath(const std::wstring &path) {
 
   std::wstring fullPath(bufferSize, L'\0');
   DWORD result = GetFullPathNameW(path.c_str(), bufferSize, &fullPath[0], nullptr);
-  if (result != bufferSize - 1)
-    throw std::system_error(GetLastError(), std::system_category(), "GetFullPathNameW failed");
-
   fullPath.resize(result);
+  if (result == 0)
+    throw std::system_error(GetLastError(), std::system_category(), "GetFullPathNameW failed");
   return fullPath;
 }
 
