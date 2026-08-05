@@ -222,9 +222,30 @@ PSYSTEM_HANDLE_INFORMATION GetAllHandles() {
 void _ForceRemove(const std::wstring &widePath, Logger &logger);
 
 void ForceRemove(const std::string &pathname, Logger &logger) {
+  std::filesystem::path path(pathname);
+  if (!std::filesystem::exists(path)) {
+    logger.error("Path does not exist: " + pathname);
+    return;
+  }
+
+  auto strip = [](const std::string &str) {
+    size_t start = str.find_first_not_of(" \t\n\r");
+    size_t end = str.find_last_not_of(" \t\n\r");
+    return (start == std::string::npos) ? "" : str.substr(start, end - start + 1);
+  };
+
+  std::error_code ec;
+  std::filesystem::remove_all(path, ec);
+  if (ec) {
+    logger.warning("Failed to remove using std::filesystem::remove_all: " + strip(ec.message()));
+  } else {
+    logger.info("Path removed successfully using std::filesystem::remove_all.");
+    return;
+  }
+
   try {
     if (!IsRunAsAdmin()) {
-      logger.error("This program must be run as administrator.");
+      logger.error("The program must be run as an administrator to force remove files or directories.");
       return;
     }
 
