@@ -5,6 +5,8 @@
 #include <iostream>
 #include <string>
 #include <system_error>
+#include <utility>
+#include <vector>
 
 #include <pathcch.h>
 #include <windows.h>
@@ -17,10 +19,21 @@
 typedef NTSTATUS(NTAPI *pNtQueryObject)(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass,
                                         PVOID ObjectInformation, ULONG ObjectInformationLength,
                                         PULONG ReturnLength);
+typedef NTSTATUS(NTAPI *pRtlNtStatusToDosError)(NTSTATUS Status);
+typedef NTSTATUS(NTAPI *pNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS SystemInformationClass,
+                                                   PVOID SystemInformation, ULONG SystemInformationLength,
+                                                   PULONG ReturnLength);
 
 #define NtQueryObject _NtQueryObject
+#define RtlNtStatusToDosError _RtlNtStatusToDosError
+#define NtQuerySystemInformation _NtQuerySystemInformation
+
 HMODULE hNtdll = LoadLibraryW(L"ntdll.dll");
 pNtQueryObject _NtQueryObject = reinterpret_cast<pNtQueryObject>(GetProcAddress(hNtdll, "NtQueryObject"));
+pRtlNtStatusToDosError _RtlNtStatusToDosError =
+    reinterpret_cast<pRtlNtStatusToDosError>(GetProcAddress(hNtdll, "RtlNtStatusToDosError"));
+pNtQuerySystemInformation _NtQuerySystemInformation =
+    reinterpret_cast<pNtQuerySystemInformation>(GetProcAddress(hNtdll, "NtQuerySystemInformation"));
 
 class Logger {
 public:
@@ -178,6 +191,21 @@ std::wstring GetKernelName(HANDLE hFile) {
   return kernelName;
 }
 
+std::wstring GetKernelName(const SYSTEM_HANDLE_ENTRY &entry) {
+  HANDLE hProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, entry.OwnerPid);
+  if (!hProcess) return L"";
+  HANDLE hDupHandle = nullptr;
+  if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)entry.HandleValue, GetCurrentProcess(), &hDupHandle, 0, 0,
+                       DUPLICATE_SAME_ACCESS)) {
+    CloseHandle(hProcess);
+    return L"";
+  }
+  CloseHandle(hProcess);
+  std::wstring kernelName = GetKernelName(hDupHandle);
+  CloseHandle(hDupHandle);
+  return kernelName;
+}
+
 std::wstring GetKernelName(const std::wstring &path) {
   HANDLE file_handle = CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                    NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
@@ -186,6 +214,30 @@ std::wstring GetKernelName(const std::wstring &path) {
   const auto kernelName = GetKernelName(file_handle);
   CloseHandle(file_handle);
   return kernelName;
+}
+
+PSYSTEM_HANDLE_INFORMATION GetAllHandles() {
+  void *buffer = nullptr;
+  ULONG returnedLength = 0x1000;
+  NTSTATUS status = 0;
+
+  while (buffer == nullptr) {
+    buffer = malloc(returnedLength);
+    if (buffer == nullptr) throw std::bad_alloc();
+    status = NtQuerySystemInformation(SystemHandleInformation, buffer, returnedLength, &returnedLength);
+    if (status == STATUS_INFO_LENGTH_MISMATCH) {
+      free(buffer), buffer = nullptr;
+      returnedLength <<= 1; // Double the size considering more handle may be created
+    }
+  }
+
+  if (!NT_SUCCESS(status)) {
+    free(buffer);
+    throw std::system_error(RtlNtStatusToDosError(status), std::system_category(),
+                            "NtQuerySystemInformation failed");
+  }
+
+  return reinterpret_cast<PSYSTEM_HANDLE_INFORMATION>(buffer);
 }
 
 void _ForceRemove(const std::wstring &widePath, Logger &logger);
@@ -267,9 +319,40 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
     logger.info("File deleted successfully: " + name);
     return;
   } else
-    logger.error("Failed to delete file: " + name);
+    logger.warning("Failed to delete file: " + name);
 
-  // TODO: Search for the file handle and force close it
+  // Step 5: Search for the file handle and force close it
+  logger.info("Searching for handles for: " + name);
+  PSYSTEM_HANDLE_INFORMATION handleInfo = GetAllHandles();
+  for (ULONG i = 0; i < handleInfo->Count; ++i) {
+    if (GetKernelName(handleInfo->Handle[i]) != nameW) continue;
+    ULONG &pid = handleInfo->Handle[i].OwnerPid;
+    USHORT &handle = handleInfo->Handle[i].HandleValue;
+    logger.info("Found handle: " + std::to_string(handle) + " in process: " + std::to_string(pid));
+    HANDLE hProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid);
+    if (!hProcess) {
+      logger.error("Failed to open process: " + std::to_string(pid));
+      continue;
+    }
+    HANDLE hDupHandle = nullptr;
+    if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)handle, GetCurrentProcess(), &hDupHandle, 0, FALSE,
+                         DUPLICATE_CLOSE_SOURCE)) {
+      logger.error("Failed to close handle: " + std::to_string((std::uintptr_t)handle) +
+                   " in process: " + std::to_string(pid));
+    } else {
+      logger.info("Closed handle: " + std::to_string((std::uintptr_t)handle) +
+                  " in process: " + std::to_string(pid));
+      CloseHandle(hDupHandle);
+    }
+    CloseHandle(hProcess);
+  }
+  free(handleInfo);
+
+  // Step 6: Retry deleting the file after closing handles
+  if (DeleteFileW(widePath.c_str()))
+    logger.info("File deleted successfully: " + name);
+  else
+    logger.error("Failed to delete file: " + name);
 }
 
 #endif // FRM_FORCE_REMOVE_HPP
