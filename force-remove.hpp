@@ -154,15 +154,21 @@ std::wstring GetKernelName(HANDLE hFile) {
 #define name_info reinterpret_cast<POBJECT_NAME_INFORMATION>(buffer)
   void *buffer = nullptr;
   ULONG returnedLength = 0x1000;
+  NTSTATUS status = 0;
 
   while (buffer == nullptr) {
     buffer = malloc(returnedLength);
     if (buffer == nullptr) throw std::bad_alloc();
-    NTSTATUS status = NtQueryObject(hFile, ObjectNameInformation, name_info, returnedLength, &returnedLength);
+    status = NtQueryObject(hFile, ObjectNameInformation, name_info, returnedLength, &returnedLength);
     if (status == STATUS_INFO_LENGTH_MISMATCH) {
       free(buffer), buffer = nullptr;
       returnedLength <<= 1; // Double the size considering more handle may be created
     }
+  }
+
+  if (!NT_SUCCESS(status)) {
+    free(buffer);
+    throw std::system_error(RtlNtStatusToDosError(status), std::system_category(), "NtQueryObject failed");
   }
 
   std::wstring kernelName(name_info->Name.Buffer, name_info->Name.Length / sizeof(WCHAR));
