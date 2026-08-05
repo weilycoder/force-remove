@@ -309,6 +309,7 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   // Step 5: Search for the file handle and force close it
   logger.info("Searching for handles for: " + name);
   PSYSTEM_HANDLE_INFORMATION handleInfo = GetAllHandles();
+  logger.debug("Total handles found: " + std::to_string(handleInfo->Count));
   const HANDLE currentProcess = GetCurrentProcess();
   ULONG lastPid = 0;
   HANDLE hProcess = nullptr;
