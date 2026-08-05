@@ -8,8 +8,19 @@
 
 #include <pathcch.h>
 #include <windows.h>
+#include <winternl.h>
 
 #pragma comment(lib, "pathcch.lib")
+
+#define STATUS_INFO_LENGTH_MISMATCH ((NTSTATUS)0xC0000004UL)
+
+typedef NTSTATUS(NTAPI *pNtQueryObject)(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass,
+                                        PVOID ObjectInformation, ULONG ObjectInformationLength,
+                                        PULONG ReturnLength);
+
+#define NtQueryObject _NtQueryObject
+HMODULE hNtdll = LoadLibraryW(L"ntdll.dll");
+pNtQueryObject _NtQueryObject = reinterpret_cast<pNtQueryObject>(GetProcAddress(hNtdll, "NtQueryObject"));
 
 class Logger {
 public:
@@ -137,6 +148,40 @@ std::wstring PathCombine(const std::wstring &path1, const std::wstring &path2) {
   return result;
 }
 
+std::wstring GetKernelName(HANDLE hFile) {
+  if (GetFileType(hFile) != FILE_TYPE_DISK) return L""; // Not a disk file
+
+#define name_info reinterpret_cast<POBJECT_NAME_INFORMATION>(buffer)
+  void *buffer = nullptr;
+  ULONG returnedLength = 0x1000;
+
+  while (buffer == nullptr) {
+    buffer = malloc(returnedLength);
+    if (buffer == nullptr) throw std::bad_alloc();
+    NTSTATUS status = NtQueryObject(hFile, ObjectNameInformation, name_info, returnedLength, &returnedLength);
+    if (status == STATUS_INFO_LENGTH_MISMATCH) {
+      free(buffer), buffer = nullptr;
+      returnedLength <<= 1; // Double the size considering more handle may be created
+    }
+  }
+
+  std::wstring kernelName(name_info->Name.Buffer, name_info->Name.Length / sizeof(WCHAR));
+  free(buffer);
+#undef name_info
+
+  return kernelName;
+}
+
+std::wstring GetKernelName(const std::wstring &path) {
+  HANDLE file_handle = CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                   NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+  if (file_handle == INVALID_HANDLE_VALUE)
+    throw std::system_error(GetLastError(), std::system_category(), "CreateFileW failed");
+  const auto kernelName = GetKernelName(file_handle);
+  CloseHandle(file_handle);
+  return kernelName;
+}
+
 void _ForceRemove(const std::wstring &widePath, Logger &logger);
 
 void ForceRemove(const std::string &pathname, Logger &logger) {
@@ -163,7 +208,8 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
 }
 
 void _ForceRemove(const std::wstring &widePath, Logger &logger) {
-  const std::string name = WideToUtf8(widePath);
+  const std::wstring nameW = GetKernelName(widePath);
+  const std::string name = WideToUtf8(nameW);
 
   // Step 3: Unset read-only attribute if set
   DWORD attributes = GetFileAttributesW(widePath.c_str());
