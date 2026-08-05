@@ -288,13 +288,13 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
 }
 
 void _ForceRemove(const std::wstring &widePath, Logger &logger) {
-  const std::wstring nameW = GetKernelName(widePath);
-  const std::string name = WideToUtf8(nameW);
+  const std::wstring kernelNameWide = GetKernelName(widePath);
+  const std::string kernelNameUtf8 = WideToUtf8(kernelNameWide);
 
   // Step 3: Unset read-only attribute if set
   DWORD attributes = GetFileAttributesW(widePath.c_str());
   if (attributes == INVALID_FILE_ATTRIBUTES) {
-    logger.error("Failed to get file attributes for: " + name);
+    logger.error("Failed to get file attributes for: " + kernelNameUtf8);
     return;
   }
 
@@ -304,22 +304,22 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   attributes &= ~FILE_ATTRIBUTE_SYSTEM;
 
   if (attributes == originalAttributes) {
-    logger.debug("No need to change file attributes for: " + name);
+    logger.debug("No need to change file attributes for: " + kernelNameUtf8);
   } else if (SetFileAttributesW(widePath.c_str(), attributes)) {
-    logger.info("Unset read-only attribute for: " + name);
+    logger.info("Unset read-only attribute for: " + kernelNameUtf8);
   } else {
-    logger.error("Failed to unset read-only attribute for: " + name);
+    logger.error("Failed to unset read-only attribute for: " + kernelNameUtf8);
     return;
   }
 
   // Step 3: Detect if the path is a directory or a file
   if (std::filesystem::is_directory(widePath)) {
-    logger.debug("Detected directory: " + name);
+    logger.debug("Detected directory: " + kernelNameUtf8);
     std::wstring searchPath = PathCombine(widePath, L"*");
     WIN32_FIND_DATAW findData;
     HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
     if (hFind == INVALID_HANDLE_VALUE)
-      logger.error("Failed to list directory contents for: " + name);
+      logger.error("Failed to list directory contents for: " + kernelNameUtf8);
     else {
       do {
         std::wstring entryName(findData.cFileName);
@@ -330,21 +330,21 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
     }
     CloseHandle(hFind);
     if (RemoveDirectoryW(widePath.c_str()))
-      logger.info("Directory deleted successfully: " + name);
+      logger.info("Directory deleted successfully: " + kernelNameUtf8);
     else
-      logger.error("Failed to delete directory: " + name);
+      logger.error("Failed to delete directory: " + kernelNameUtf8);
     return;
   }
 
   // Step 4: Attempt to delete the file
-  if (DeleteFileByNt(nameW)) {
-    logger.info("File deleted successfully: " + name);
+  if (DeleteFileByNt(kernelNameWide)) {
+    logger.info("File deleted successfully: " + kernelNameUtf8);
     return;
   } else
-    logger.warning("Failed to delete file: " + name);
+    logger.warning("Failed to delete file: " + kernelNameUtf8);
 
   // Step 5: Search for the file handle and force close it
-  logger.info("Searching for handles for: " + name);
+  logger.info("Searching for handles for: " + kernelNameUtf8);
   PSYSTEM_HANDLE_INFORMATION handleInfo = GetAllHandles();
   logger.debug("Total handles found: " + std::to_string(handleInfo->Count));
   const HANDLE currentProcess = GetCurrentProcess();
@@ -366,7 +366,7 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
       continue;
     std::wstring handleKernelName = GetKernelName(dupHandle);
     CloseHandle(dupHandle), dupHandle = nullptr;
-    if (handleKernelName != nameW) continue;
+    if (handleKernelName != kernelNameWide) continue;
 
     logger.debug("Found handle: " + std::to_string(remoteHandle) + " in process: " + std::to_string(pid));
     if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)remoteHandle, GetCurrentProcess(), &dupHandle, 0, FALSE,
@@ -383,10 +383,10 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   free(handleInfo);
 
   // Step 6: Retry deleting the file after closing handles
-  if (DeleteFileByNt(nameW))
-    logger.info("File deleted successfully: " + name);
+  if (DeleteFileByNt(kernelNameWide))
+    logger.info("File deleted successfully: " + kernelNameUtf8);
   else
-    logger.error("Failed to delete file: " + name);
+    logger.error("Failed to delete file: " + kernelNameUtf8);
 }
 
 #endif // FRM_FORCE_REMOVE_HPP
