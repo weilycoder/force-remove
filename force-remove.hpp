@@ -176,9 +176,9 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   if (attributes == originalAttributes) {
     logger.debug("No need to change file attributes for: " + name);
   } else if (SetFileAttributesW(widePath.c_str(), attributes)) {
-    logger.debug("File attributes changed successfully for: " + name);
+    logger.info("Unset read-only attribute for: " + name);
   } else {
-    logger.error("Failed to change file attributes for: " + name);
+    logger.error("Failed to unset read-only attribute for: " + name);
     return;
   }
 
