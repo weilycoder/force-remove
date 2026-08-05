@@ -331,7 +331,7 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
     CloseHandle(dupHandle), dupHandle = nullptr;
     if (handleKernelName != nameW) continue;
 
-    logger.info("Found handle: " + std::to_string(remoteHandle) + " in process: " + std::to_string(pid));
+    logger.debug("Found handle: " + std::to_string(remoteHandle) + " in process: " + std::to_string(pid));
     if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)remoteHandle, GetCurrentProcess(), &dupHandle, 0, FALSE,
                          DUPLICATE_CLOSE_SOURCE)) {
       logger.error("Failed to close handle: " + std::to_string((std::uintptr_t)remoteHandle) +
