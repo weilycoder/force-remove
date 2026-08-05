@@ -16,6 +16,7 @@
 void _ForceRemove(const std::wstring &widePath, Logger &logger);
 
 void ForceRemove(const std::string &pathname, Logger &logger) {
+  // Check if the path exists
   std::filesystem::path path(pathname);
   if (!std::filesystem::exists(path)) {
     logger.error("Path does not exist: " + pathname);
@@ -28,6 +29,7 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
     return (start == std::string::npos) ? "" : str.substr(start, end - start + 1);
   };
 
+  // Attempt to remove the path using std::filesystem::remove_all
   std::error_code ec;
   std::filesystem::remove_all(path, ec);
   if (ec) {
@@ -43,14 +45,13 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
       return;
     }
 
-    // Step 1: Set Privileges
+    // Set Privileges
     if (!SetPrivilege(L"SeBackupPrivilege") || !SetPrivilege(L"SeRestorePrivilege") ||
         !SetPrivilege(L"SeDebugPrivilege") || !SetPrivilege(L"SeTakeOwnershipPrivilege")) {
       logger.error("Failed to set required privileges.");
       return;
     }
 
-    // Step 2: Convert path to wide string
     _ForceRemove(GetFullPath(Utf8ToWide(pathname)), logger);
   } catch (const std::bad_alloc &e) {
     logger.error(std::string("Memory allocation failed: ") + strip(e.what()));
@@ -63,7 +64,7 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   const std::wstring kernelNameWide = GetKernelName(widePath);
   const std::string kernelNameUtf8 = WideToUtf8(kernelNameWide);
 
-  // Step 3: Unset read-only attribute if set
+  // Unset read-only attribute if set
   DWORD attributes = GetFileAttributesW(widePath.c_str());
   if (attributes == INVALID_FILE_ATTRIBUTES) {
     logger.error("Failed to get file attributes for: " + kernelNameUtf8);
@@ -84,7 +85,7 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
     return;
   }
 
-  // Step 3: Detect if the path is a directory or a file
+  // Detect if the path is a directory or a file
   if (std::filesystem::is_directory(widePath)) {
     logger.debug("Detected directory: " + kernelNameUtf8);
     std::wstring searchPath = PathCombine(widePath, L"*");
@@ -108,14 +109,14 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
     return;
   }
 
-  // Step 4: Attempt to delete the file
+  // Attempt to delete the file
   if (DeleteFileByNt(kernelNameWide)) {
     logger.info("File deleted successfully: " + kernelNameUtf8);
     return;
   } else
     logger.warning("Failed to delete file: " + kernelNameUtf8);
 
-  // Step 5: Search for the file handle and force close it
+  // Search for the file handle and force close it
   logger.info("Searching for handles for: " + kernelNameUtf8);
   PSYSTEM_HANDLE_INFORMATION handleInfo = GetAllHandles();
   logger.debug("Total handles found: " + std::to_string(handleInfo->Count));
@@ -154,7 +155,7 @@ void _ForceRemove(const std::wstring &widePath, Logger &logger) {
   if (hProcess) CloseHandle(hProcess);
   free(handleInfo);
 
-  // Step 6: Retry deleting the file after closing handles
+  // Retry deleting the file after closing handles
   if (DeleteFileByNt(kernelNameWide))
     logger.info("File deleted successfully: " + kernelNameUtf8);
   else
