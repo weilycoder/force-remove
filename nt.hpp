@@ -6,6 +6,7 @@
 #include <winternl.h>
 
 std::wstring GetKernelName(HANDLE hFile);
+std::wstring GetHandleType(HANDLE hFile);
 
 std::wstring GetFileKernelName(HANDLE hFile);
 std::wstring GetFileKernelName(const std::wstring &path);

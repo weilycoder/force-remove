@@ -54,6 +54,31 @@ std::wstring GetKernelName(HANDLE hFile) {
   return kernelName;
 }
 
+std::wstring GetHandleType(HANDLE hFile) {
+#define type_info reinterpret_cast<POBJECT_TYPE_INFORMATION>(buffer)
+  void *buffer = nullptr;
+  ULONG returnedLength = 0x1000;
+  NTSTATUS status = 0;
+
+  while (buffer == nullptr) {
+    buffer = malloc(returnedLength);
+    if (buffer == nullptr) throw std::bad_alloc();
+    status = NtQueryObject(hFile, ObjectTypeInformation, type_info, returnedLength, &returnedLength);
+    if (status == STATUS_INFO_LENGTH_MISMATCH) free(buffer), buffer = nullptr;
+  }
+
+  if (!NT_SUCCESS(status)) {
+    free(buffer);
+    throw std::system_error(RtlNtStatusToDosError(status), std::system_category(), "NtQueryObject failed");
+  }
+
+  std::wstring typeName(type_info->TypeName.Buffer, type_info->TypeName.Length / sizeof(WCHAR));
+  free(buffer);
+#undef type_info
+
+  return typeName;
+}
+
 std::wstring GetFileKernelName(HANDLE hFile) {
   if (GetFileType(hFile) != FILE_TYPE_DISK) return L""; // Not a disk file
   return GetKernelName(hFile);
