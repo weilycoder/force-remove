@@ -29,7 +29,7 @@ pRtlNtStatusToDosError _RtlNtStatusToDosError =
 pNtQuerySystemInformation _NtQuerySystemInformation =
     reinterpret_cast<pNtQuerySystemInformation>(GetProcAddress(hNtdll, "NtQuerySystemInformation"));
 
-std::wstring GetKernelName(HANDLE hFile) {
+std::wstring GetFileKernelName(HANDLE hFile) {
   if (GetFileType(hFile) != FILE_TYPE_DISK) return L""; // Not a disk file
 
 #define name_info reinterpret_cast<POBJECT_NAME_INFORMATION>(buffer)
@@ -56,12 +56,12 @@ std::wstring GetKernelName(HANDLE hFile) {
   return kernelName;
 }
 
-std::wstring GetKernelName(const std::wstring &path) {
+std::wstring GetFileKernelName(const std::wstring &path) {
   HANDLE file_handle = CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
                                    OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
   if (file_handle == INVALID_HANDLE_VALUE)
     throw std::system_error(GetLastError(), std::system_category(), "CreateFileW failed");
-  const auto kernelName = GetKernelName(file_handle);
+  const auto kernelName = GetFileKernelName(file_handle);
   CloseHandle(file_handle);
   return kernelName;
 }

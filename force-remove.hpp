@@ -15,7 +15,7 @@
 #include "utils.hpp"
 
 void DeleteRecursively(const std::wstring &widePath, Trie &inUseFiles, Logger &logger) {
-  const std::wstring kernelNameWide = GetKernelName(widePath);
+  const std::wstring kernelNameWide = GetFileKernelName(widePath);
   const std::string kernelNameUtf8 = WideToUtf8(kernelNameWide);
 
   // Unset read-only attribute if set
@@ -95,7 +95,7 @@ void ReleaseHandles(Trie &files, Logger &logger) {
     if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)remoteHandle, currentProcess, &dupHandle, 0, 0,
                          DUPLICATE_SAME_ACCESS))
       continue;
-    std::wstring handleKernelName = GetKernelName(dupHandle);
+    std::wstring handleKernelName = GetFileKernelName(dupHandle);
     CloseHandle(dupHandle), dupHandle = nullptr;
     if (!files.exists(handleKernelName.c_str(), handleKernelName.size() * sizeof(wchar_t))) continue;
 

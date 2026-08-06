@@ -5,8 +5,8 @@
 #include <windows.h>
 #include <winternl.h>
 
-std::wstring GetKernelName(HANDLE hFile);
-std::wstring GetKernelName(const std::wstring &path);
+std::wstring GetFileKernelName(HANDLE hFile);
+std::wstring GetFileKernelName(const std::wstring &path);
 
 bool DeleteFileByNt(const std::wstring &kernelName);
 
