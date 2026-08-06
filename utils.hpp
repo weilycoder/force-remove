@@ -11,4 +11,6 @@ std::wstring PathCombine(const std::wstring &path1, const std::wstring &path2);
 bool IsRunAsAdmin();
 bool SetPrivilege(const std::wstring &privilegeName);
 
+bool CloseRemoteHandle(HANDLE hProcess, HANDLE handle);
+
 #endif // FRM_UTILS_HPP

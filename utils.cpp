@@ -38,8 +38,7 @@ std::wstring GetFullPath(const std::wstring &path) {
   std::wstring fullPath(bufferSize, L'\0');
   DWORD result = GetFullPathNameW(path.c_str(), bufferSize, &fullPath[0], nullptr);
   fullPath.resize(result);
-  if (result == 0)
-    throw std::system_error(GetLastError(), std::system_category(), "GetFullPathNameW failed");
+  if (result == 0) throw std::system_error(GetLastError(), std::system_category(), "GetFullPathNameW failed");
   return fullPath;
 }
 
@@ -80,4 +79,11 @@ bool SetPrivilege(const std::wstring &privilegeName) {
   CloseHandle(hToken);
 
   return result;
+}
+
+bool CloseRemoteHandle(HANDLE hProcess, HANDLE handle) {
+  HANDLE dupHandle = nullptr;
+  WINBOOL status = DuplicateHandle(hProcess, handle, GetCurrentProcess(), &dupHandle, 0, FALSE, DUPLICATE_CLOSE_SOURCE);
+  if (status) CloseHandle(dupHandle);
+  return status != FALSE;
 }

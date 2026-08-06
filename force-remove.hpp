@@ -96,20 +96,17 @@ void ReleaseHandles(Trie &files, Logger &logger) {
                          DUPLICATE_SAME_ACCESS))
       continue;
     std::wstring handleKernelName = GetFileKernelName(dupHandle);
-    CloseHandle(dupHandle), dupHandle = nullptr;
+    CloseHandle(dupHandle);
     if (!files.exists(handleKernelName.c_str(), handleKernelName.size() * sizeof(wchar_t))) continue;
 
     logger.info("Found handle " + std::to_string(remoteHandle) + " in process " + std::to_string(pid) +
                 " for file: " + WideToUtf8(handleKernelName));
-    if (!DuplicateHandle(hProcess, (HANDLE)(ULONG_PTR)remoteHandle, GetCurrentProcess(), &dupHandle, 0, FALSE,
-                         DUPLICATE_CLOSE_SOURCE)) {
+    if (!CloseRemoteHandle(hProcess, (HANDLE)(ULONG_PTR)remoteHandle))
       logger.error("Failed to close handle: " + std::to_string((std::uintptr_t)remoteHandle) +
                    " in process: " + std::to_string(pid));
-    } else {
+    else
       logger.info("Closed handle: " + std::to_string((std::uintptr_t)remoteHandle) +
                   " in process: " + std::to_string(pid));
-      CloseHandle(dupHandle);
-    }
   }
   if (hProcess) CloseHandle(hProcess);
   free(handleInfo);
