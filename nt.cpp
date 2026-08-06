@@ -29,9 +29,7 @@ pRtlNtStatusToDosError _RtlNtStatusToDosError =
 pNtQuerySystemInformation _NtQuerySystemInformation =
     reinterpret_cast<pNtQuerySystemInformation>(GetProcAddress(hNtdll, "NtQuerySystemInformation"));
 
-std::wstring GetFileKernelName(HANDLE hFile) {
-  if (GetFileType(hFile) != FILE_TYPE_DISK) return L""; // Not a disk file
-
+std::wstring GetKernelName(HANDLE hFile) {
 #define name_info reinterpret_cast<POBJECT_NAME_INFORMATION>(buffer)
   void *buffer = nullptr;
   ULONG returnedLength = 0x1000;
@@ -54,6 +52,11 @@ std::wstring GetFileKernelName(HANDLE hFile) {
 #undef name_info
 
   return kernelName;
+}
+
+std::wstring GetFileKernelName(HANDLE hFile) {
+  if (GetFileType(hFile) != FILE_TYPE_DISK) return L""; // Not a disk file
+  return GetKernelName(hFile);
 }
 
 std::wstring GetFileKernelName(const std::wstring &path) {
