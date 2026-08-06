@@ -146,7 +146,8 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
 
     // Set Privileges
     if (!SetPrivilege(L"SeBackupPrivilege") || !SetPrivilege(L"SeRestorePrivilege") ||
-        !SetPrivilege(L"SeDebugPrivilege") || !SetPrivilege(L"SeTakeOwnershipPrivilege")) {
+        !SetPrivilege(L"SeDebugPrivilege") || !SetPrivilege(L"SeTakeOwnershipPrivilege") ||
+        !SetPrivilege(L"SeTcbPrivilege")) {
       logger.error("Failed to set required privileges.");
       return;
     }
