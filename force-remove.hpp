@@ -165,15 +165,15 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
         logger.info("  " + WideToUtf8(wideFile));
       }
       ReleaseHandles(inUseFiles, logger);
-    }
 
-    // Retry deleting path after releasing handles
-    std::error_code ec;
-    std::filesystem::remove_all(path, ec);
-    if (ec) {
-      logger.error("Failed to remove: " + strip(ec.message()));
-    } else {
-      logger.info("Path removed successfully after releasing handles.");
+      // Retry deleting path after releasing handles
+      std::error_code ec;
+      std::filesystem::remove_all(path, ec);
+      if (ec) {
+        logger.error("Failed to remove: " + strip(ec.message()));
+      } else {
+        logger.info("Path removed successfully after releasing handles.");
+      }
     }
   } catch (const std::bad_alloc &e) {
     logger.error(std::string("Memory allocation failed: ") + strip(e.what()));
