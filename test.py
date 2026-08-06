@@ -35,7 +35,7 @@ def cleanup_test_dir(test_dir: pathlib.Path) -> None:
             print(f"Failed to clean up test directory: {err}")
 
 
-class Runner:
+class ProcessExecutor:
     def __init__(self, args: list[str], cwd: str | pathlib.Path | None = None) -> None:
         self.process = subprocess.Popen(args, cwd=cwd)
 
@@ -46,7 +46,7 @@ class Runner:
             pass
 
 
-class FileReadOnlyLocker:
+class FileAccessGuard:
     def __init__(self, file_path: str | pathlib.Path) -> None:
         self.file_path = file_path
         os.chmod(self.file_path, 0o400)  # Read-only
@@ -104,10 +104,10 @@ except KeyboardInterrupt:
     cleanup_test_dir(test)
     sys.exit(1)
 
-run_exe_lock = Runner([os.path.join(target, f"{exe}.exe")])
-run_dll_lock = Runner([os.path.join(test, f"{dll_lock}.exe")])
-run_file_lock = Runner([sys.executable, os.path.join(test, f"{file_lock}.py")])
-readonly_lock = FileReadOnlyLocker(os.path.join(target, f"{readonly}.txt"))
+run_exe_lock = ProcessExecutor([os.path.join(target, f"{exe}.exe")])
+run_dll_lock = ProcessExecutor([os.path.join(test, f"{dll_lock}.exe")])
+run_file_lock = ProcessExecutor([sys.executable, os.path.join(test, f"{file_lock}.py")])
+readonly_lock = FileAccessGuard(os.path.join(target, f"{readonly}.txt"))
 
 print(f"Test directory: {target}")
 
