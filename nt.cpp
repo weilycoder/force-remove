@@ -21,12 +21,12 @@ typedef NTSTATUS(NTAPI *pNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS Syst
 #define RtlNtStatusToDosError _RtlNtStatusToDosError
 #define NtQuerySystemInformation _NtQuerySystemInformation
 
-HMODULE hNtdll = LoadLibraryW(L"ntdll.dll");
-pNtDeleteFile _NtDeleteFile = reinterpret_cast<pNtDeleteFile>(GetProcAddress(hNtdll, "NtDeleteFile"));
-pNtQueryObject _NtQueryObject = reinterpret_cast<pNtQueryObject>(GetProcAddress(hNtdll, "NtQueryObject"));
-pRtlNtStatusToDosError _RtlNtStatusToDosError =
+static HMODULE hNtdll = LoadLibraryW(L"ntdll.dll");
+static pNtDeleteFile _NtDeleteFile = reinterpret_cast<pNtDeleteFile>(GetProcAddress(hNtdll, "NtDeleteFile"));
+static pNtQueryObject _NtQueryObject = reinterpret_cast<pNtQueryObject>(GetProcAddress(hNtdll, "NtQueryObject"));
+static pRtlNtStatusToDosError _RtlNtStatusToDosError =
     reinterpret_cast<pRtlNtStatusToDosError>(GetProcAddress(hNtdll, "RtlNtStatusToDosError"));
-pNtQuerySystemInformation _NtQuerySystemInformation =
+static pNtQuerySystemInformation _NtQuerySystemInformation =
     reinterpret_cast<pNtQuerySystemInformation>(GetProcAddress(hNtdll, "NtQuerySystemInformation"));
 
 std::wstring GetKernelName(HANDLE hFile) {
