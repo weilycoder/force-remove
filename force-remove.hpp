@@ -11,6 +11,7 @@
 
 #include "logger.hpp"
 #include "nt.hpp"
+#include "release-exec.hpp"
 #include "trie.hpp"
 #include "utils.hpp"
 
@@ -85,6 +86,7 @@ void ReleaseHandles(Trie &files, Logger &logger) {
     USHORT &remoteHandle = handleInfo->Handle[i].HandleValue;
 
     if (i == 0 || lastPid != pid) {
+      if (i != 0) ReleaseExecutingFiles(lastPid, files, logger);
       lastPid = pid;
       if (hProcess) CloseHandle(hProcess);
       hProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid);
