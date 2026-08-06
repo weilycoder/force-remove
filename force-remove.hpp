@@ -156,8 +156,16 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
     Trie inUseFiles;
     DeleteRecursively(GetFullPath(Utf8ToWide(pathname)), inUseFiles, logger);
 
-    // Release handles for in-use files
-    ReleaseHandles(inUseFiles, logger);
+    if (inUseFiles.count() == 0)
+      logger.info("No in-use files found.");
+    else {
+      logger.info("Found " + std::to_string(inUseFiles.count()) + " in-use file(s):");
+      for (const auto &file : inUseFiles.get_all()) {
+        std::wstring wideFile(reinterpret_cast<const wchar_t *>(file.data()), file.size() / sizeof(wchar_t));
+        logger.info("  " + WideToUtf8(wideFile));
+      }
+      ReleaseHandles(inUseFiles, logger);
+    }
 
     // Retry deleting path after releasing handles
     std::error_code ec;

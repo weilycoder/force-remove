@@ -10,6 +10,7 @@
 
 class Trie {
 private:
+  std::size_t size = 0;
   std::vector<bool> isEnd;
   std::vector<std::array<std::size_t, 256>> nodes;
 
@@ -24,6 +25,8 @@ public:
     new_node(); // Create the root node
   }
 
+  std::size_t count() const { return size; }
+
   void insert(const void *data, std::size_t length) {
     std::size_t nodeIndex = 0;
     const uint8_t *byteData = reinterpret_cast<const uint8_t *>(data);
@@ -32,7 +35,7 @@ public:
       if (nodes[nodeIndex][byte] == 0) nodes[nodeIndex][byte] = new_node();
       nodeIndex = nodes[nodeIndex][byte];
     }
-    isEnd[nodeIndex] = true;
+    if (isEnd[nodeIndex] != true) ++size, isEnd[nodeIndex] = true;
   }
 
   bool exists(const void *data, std::size_t length) const {
