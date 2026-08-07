@@ -1,5 +1,11 @@
-#include "release-exec.hpp"
+#include <system_error>
+#include <vector>
+#include <windows.h>
+
+#include <tlhelp32.h>
+
 #include "nt.hpp"
+#include "release-exec.hpp"
 #include "utils.hpp"
 
 typedef WINBOOL(WINAPI *pFreeLibrary)(HMODULE hLibModule);
@@ -9,7 +15,28 @@ static pFreeLibrary _FreeLibrary = reinterpret_cast<pFreeLibrary>(GetProcAddress
 
 #define lpFreeLibrary reinterpret_cast<LPTHREAD_START_ROUTINE>(_FreeLibrary)
 
-void ReleaseExecutingFiles(DWORD processId, Trie &files, Logger &logger) {
+static std::vector<DWORD> GetAllProcessIds() {
+  std::vector<DWORD> pids;
+  HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (hSnapshot == INVALID_HANDLE_VALUE)
+    throw std::system_error(GetLastError(), std::system_category(), "CreateToolhelp32Snapshot failed");
+
+  PROCESSENTRY32 pe;
+  pe.dwSize = sizeof(PROCESSENTRY32);
+
+  if (Process32First(hSnapshot, &pe)) {
+    do { pids.push_back(pe.th32ProcessID); } while (Process32Next(hSnapshot, &pe));
+  } else {
+    const DWORD lastError = GetLastError();
+    CloseHandle(hSnapshot);
+    throw std::system_error(lastError, std::system_category(), "Process32First failed");
+  }
+
+  CloseHandle(hSnapshot);
+  return pids;
+}
+
+static void ReleaseExecutingFiles(DWORD processId, Trie &files, Logger &logger) {
   HANDLE hSnapshot;
   for (;;) {
     hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, processId);
@@ -72,4 +99,9 @@ void ReleaseExecutingFiles(DWORD processId, Trie &files, Logger &logger) {
     }
   } while (isMainModule = false, Module32NextW(hSnapshot, &me32));
   CloseHandle(hSnapshot);
+}
+
+void ReleaseExecutingFiles(Trie &files, Logger &logger) {
+  logger.info("Searching for processes with modules in use...");
+  for (const DWORD pid : GetAllProcessIds()) ReleaseExecutingFiles(pid, files, logger);
 }

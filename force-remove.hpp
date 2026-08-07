@@ -86,7 +86,6 @@ void ReleaseHandles(Trie &files, Logger &logger) {
     USHORT &remoteHandle = handleInfo->Handle[i].HandleValue;
 
     if (i == 0 || lastPid != pid) {
-      if (i != 0) ReleaseExecutingFiles(lastPid, files, logger);
       lastPid = pid;
       if (hProcess) CloseHandle(hProcess);
       hProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid);
@@ -164,6 +163,7 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
         std::wstring wideFile(reinterpret_cast<const wchar_t *>(file.data()), file.size() / sizeof(wchar_t));
         logger.info("  " + WideToUtf8(wideFile));
       }
+      ReleaseExecutingFiles(inUseFiles, logger);
       ReleaseHandles(inUseFiles, logger);
 
       // Retry deleting path after releasing handles
