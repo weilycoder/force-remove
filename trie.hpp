@@ -27,6 +27,11 @@ public:
 
   std::size_t count() const { return size; }
 
+  void clear() {
+    size = 0, isEnd.clear(), nodes.clear();
+    new_node(); // Recreate the root node
+  }
+
   void insert(const void *data, std::size_t length) {
     std::size_t nodeIndex = 0;
     const uint8_t *byteData = reinterpret_cast<const uint8_t *>(data);
