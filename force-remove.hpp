@@ -73,7 +73,7 @@ void DeleteRecursively(const std::wstring &widePath, Trie &inUseFiles, Logger &l
   }
 }
 
-void ReleaseHandles(Trie &files, Logger &logger) {
+void ReleaseInUseHandles(Trie &files, Logger &logger) {
   // Search for the file handle and force close it
   logger.info("Searching for handles for files in use...");
   PSYSTEM_HANDLE_INFORMATION handleInfo = GetAllHandles();
@@ -164,7 +164,7 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
         logger.info("  " + WideToUtf8(wideFile));
       }
       ReleaseExecutingFiles(inUseFiles, logger);
-      ReleaseHandles(inUseFiles, logger);
+      ReleaseInUseHandles(inUseFiles, logger);
 
       // Retry deleting path after releasing handles
       std::error_code ec;
