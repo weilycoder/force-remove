@@ -73,6 +73,21 @@ void DeleteRecursively(const std::wstring &widePath, Trie &inUseFiles, Logger &l
   }
 }
 
+Trie DeletePath(const std::wstring &widePath, Logger &logger) {
+  Trie inUseFiles;
+  DeleteRecursively(widePath, inUseFiles, logger);
+  if (inUseFiles.count() == 0)
+    logger.info("All files and directories deleted successfully.");
+  else {
+    logger.info("Found " + std::to_string(inUseFiles.count()) + " in-use file(s):");
+    for (const auto &file : inUseFiles.get_all()) {
+      std::wstring wideFile(reinterpret_cast<const wchar_t *>(file.data()), file.size() / sizeof(wchar_t));
+      logger.info("  " + WideToUtf8(wideFile));
+    }
+  }
+  return inUseFiles;
+}
+
 void ForceRemove(const std::string &pathname, Logger &logger) {
   // Check if the path exists
   std::filesystem::path path(pathname);
@@ -111,30 +126,19 @@ void ForceRemove(const std::string &pathname, Logger &logger) {
       return;
     }
 
-    // Recursively delete the path and track in-use files
-    Trie inUseFiles;
-    DeleteRecursively(GetFullPath(Utf8ToWide(pathname)), inUseFiles, logger);
+    const std::wstring fullPath = GetFullPath(Utf8ToWide(pathname));
 
-    if (inUseFiles.count() == 0)
-      logger.info("No in-use files found.");
-    else {
-      logger.info("Found " + std::to_string(inUseFiles.count()) + " in-use file(s):");
-      for (const auto &file : inUseFiles.get_all()) {
-        std::wstring wideFile(reinterpret_cast<const wchar_t *>(file.data()), file.size() / sizeof(wchar_t));
-        logger.info("  " + WideToUtf8(wideFile));
-      }
-      ReleaseExecutingFiles(inUseFiles, logger);
-      ReleaseInUseHandles(inUseFiles, logger);
+    auto inUseFiles1 = DeletePath(fullPath, logger);
+    if (inUseFiles1.count() == 0) return;
+    ReleaseExecutingFiles(inUseFiles1, logger);
 
-      // Retry deleting path after releasing handles
-      std::error_code ec;
-      std::filesystem::remove_all(path, ec);
-      if (ec) {
-        logger.error("Failed to remove: " + strip(ec.message()));
-      } else {
-        logger.info("Path removed successfully after releasing handles.");
-      }
-    }
+    auto inUseFiles2 = DeletePath(fullPath, logger);
+    if (inUseFiles2.count() == 0) return;
+    ReleaseInUseHandles(inUseFiles2, logger);
+
+    auto inUseFiles3 = DeletePath(fullPath, logger);
+    if (inUseFiles3.count() == 0) return;
+    logger.error("Failed to remove all files.");
   } catch (const std::bad_alloc &e) {
     logger.error(std::string("Memory allocation failed: ") + strip(e.what()));
   } catch (const std::system_error &e) {
