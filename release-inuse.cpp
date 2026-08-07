@@ -2,7 +2,7 @@
 #include "nt.hpp"
 #include "utils.hpp"
 
-void ReleaseInUseHandles(Trie &files, Logger &logger) {
+void ReleaseInUseHandles(const Trie &files, Logger &logger) {
   // Search for the file handle and force close it
   logger.info("Searching for handles for files in use...");
   PSYSTEM_HANDLE_INFORMATION handleInfo = GetAllHandles();

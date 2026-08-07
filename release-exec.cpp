@@ -36,7 +36,7 @@ static std::vector<DWORD> GetAllProcessIds() {
   return pids;
 }
 
-static void ReleaseExecutingFiles(DWORD processId, Trie &files, Logger &logger) {
+static void ReleaseExecutingFiles(DWORD processId, const Trie &files, Logger &logger) {
   HANDLE hSnapshot;
   for (;;) {
     hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, processId);
@@ -101,7 +101,7 @@ static void ReleaseExecutingFiles(DWORD processId, Trie &files, Logger &logger) 
   CloseHandle(hSnapshot);
 }
 
-void ReleaseExecutingFiles(Trie &files, Logger &logger) {
+void ReleaseExecutingFiles(const Trie &files, Logger &logger) {
   logger.info("Searching for processes with modules in use...");
   for (const DWORD pid : GetAllProcessIds()) ReleaseExecutingFiles(pid, files, logger);
 }
