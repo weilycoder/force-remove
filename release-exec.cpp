@@ -47,6 +47,7 @@ void ReleaseExecutingFiles(DWORD processId, Trie &files, Logger &logger) {
         logger.error("Failed to terminate process " + std::to_string(processId));
       }
       CloseHandle(hProcess);
+      break; // No need to continue after terminating the main module
     } else {
       HANDLE hProcess = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION |
                                         PROCESS_VM_WRITE | PROCESS_VM_READ,
@@ -70,4 +71,5 @@ void ReleaseExecutingFiles(DWORD processId, Trie &files, Logger &logger) {
       logger.info("Released module " + WideToUtf8(me32.szModule) + " in process " + std::to_string(processId));
     }
   } while (isMainModule = false, Module32NextW(hSnapshot, &me32));
+  CloseHandle(hSnapshot);
 }
