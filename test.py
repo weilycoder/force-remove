@@ -76,8 +76,8 @@ try:
     run_with_cleanup(["g++", f"{exe}.cpp", "-o", f"{exe}.exe"], cwd=target)
     os.remove(os.path.join(target, f"{exe}.cpp"))
 
-    in_used = "in_use"
-    with open(os.path.join(target, f"{in_used}.log"), "w") as f:
+    in_use = "in_use"
+    with open(os.path.join(target, f"{in_use}.log"), "w") as f:
         f.write("This file is in use.")
 
     readonly = "read_only"
@@ -97,7 +97,7 @@ try:
     os.remove(os.path.join(test, f"{dll_lock}.cpp"))
 
     file_lock = uid()
-    file_lock_code = f"""file = open({os.path.join(target, f"{in_used}.log")!a}, "r")\nwhile True:\n pass"""
+    file_lock_code = f"""file = open({os.path.join(target, f"{in_use}.log")!a}, "r")\nwhile True:\n pass"""
     with open(os.path.join(test, f"{file_lock}.py"), "w") as f:
         f.write(file_lock_code)
 except KeyboardInterrupt:
